@@ -170,7 +170,7 @@ class CircleButton:
         self.hover_color = hover_color or color
         self.bright_color = (self.color[0] + 55 if self.color[0] < 200 else self.color[0], self.color[1] + 55 if self.color[1] < 200 else self.color[1], self.color[2] + 55 if self.color[2] < 200 else self.color[2])
         self.text = text
-        self.font = pygame.font.SysFont("roboto mono", 40, bold=True)
+        self.font = pygame.font.SysFont("roboto mono", 30, bold=True)
         self.text_color = text_color
 
     def draw(self, screen):
