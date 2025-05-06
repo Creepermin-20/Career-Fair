@@ -262,6 +262,23 @@ block_stats = Console(rect=(552, 373, 219, 67), text_font="Corbel", text_size=19
 reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Time", on_click=rst_count)
 reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=None)
 
+def draw_assets():
+    global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
+    start_button.draw(screen)
+    stop_button.draw(screen)
+    exit_button.draw(screen)
+    reset_count.draw(screen)
+    reset_time.draw(screen)
+    reset_total.draw(screen)
+    jog_button.draw(screen)
+    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
+    update_color_blocks(blocks_list)
+    update_stats(blocks_list)
+    color_blocks.update()
+    block_stats.update()
+    color_blocks.draw(screen)
+    block_stats.draw(screen)
+
 # ============================================== 
 #                 START OF LOOP
 # ==============================================
@@ -271,6 +288,7 @@ running = True
 image = pygame.image.load("background.png")
 image_rect = image.get_rect()
 image_rect.topleft = (0, 0)
+blocks_list = []
 red_blocks = 0
 blue_blocks = 0
 green_blocks = 0
@@ -304,20 +322,7 @@ while running:
         reset_total.handle_event(event)
 
     screen.blit(image, image_rect)
-    start_button.draw(screen)
-    stop_button.draw(screen)
-    exit_button.draw(screen)
-    reset_count.draw(screen)
-    reset_time.draw(screen)
-    reset_total.draw(screen)
-    jog_button.draw(screen)
-    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
-    update_color_blocks(blocks_list)
-    update_stats(blocks_list)
-    color_blocks.update()
-    block_stats.update()
-    color_blocks.draw(screen)
-    block_stats.draw(screen)
+    draw_assets()
     pygame.display.flip()
 
 GPIO_MOCK.cleanup()
