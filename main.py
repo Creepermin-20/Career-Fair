@@ -1,6 +1,7 @@
 import pygame
 import sys
 import RPi.GPIO as GPIO # type: ignore
+
 pygame.init()
 
 screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
@@ -10,8 +11,10 @@ pygame.display.set_caption("Conveyor Simulator")
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (230, 230, 230)
+BLUE = (0, 0, 255)
 assigned_color = (0,0,0)
 output_pin = 11
+stepper_pin = 17
 
 # ==============================================
 #          Start of Button Functions
@@ -40,6 +43,11 @@ def rst_count():
     green_blocks = 0
     yellow_blocks = 0
 
+def jog_conveyor():
+    if on:
+        print("PROGRAM IS STARTED. STOP THE PROGRAM TO JOG CONVEYOR.")
+    GPIO.output(stepper_pin, GPIO.HIGH)
+
 def stop_program():
     global running
     GPIO.cleanup()
@@ -54,7 +62,7 @@ def stop_program():
 class Console:
     def __init__(self, rect, text_size, text_font="monospace", max_lines=10):
         self.rect = pygame.Rect(rect)
-        self.font = pygame.font.SysFont(text_font, text_size)
+        self.font = pygame.font.SysFont(text_font, text_size, True)
         self.max_lines = max_lines
         self.lines = []
 
@@ -74,6 +82,7 @@ class Console:
         pygame.draw.rect(surface, BLACK, self.rect, 2, border_radius)
         y = self.rect.top + 5
         for message, color in self.lines:
+            # message_wrapped = textwrap.fill(message,((screen_width - (screen_width/5))))
             rendered = self.font.render(message, True, color)
             surface.blit(rendered, (self.rect.left + 5, y))
             y += self.font.get_height()
@@ -128,7 +137,7 @@ class Button:
         self.rect = pygame.Rect(rect)
         self.text = text
         self.on_click = on_click
-        self.font = pygame.font.SysFont(text_font, text_size, False)
+        self.font = pygame.font.SysFont(text_font, text_size, True)
 
         self.text_color = text_color
         self.bg_color = bg_color
@@ -196,30 +205,49 @@ class CircleButton:
 #                START OF MISC
 # ==============================================
 
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(output_pin, GPIO.OUT)
+# Nothing but us Chickens
 
 # ============================================== 
 #                START OF MAIN 
 # ==============================================
 
-# Start Button rendered on the top left of the screen
+# Name of Circular Button = CircularButtonClass(positional argument x, positional argument y, size argument x, size argument y, color, dark color, darker color, text="TEXT")
+# Name of Rectangle Button = ButtonClass(rect=(positional argument x, positional argument y, size argument x, size argument y), text="TEXT", on_click=CLICKED_FUNCTION)
+# Name of TextBox = Console(rect=(positional argument x, positional argument y, size argument x, size argument y), text_font="monospace", text_size=TEXT_SIZE, max_lines=10 or MAX_LINES)
+
 start_button = CircleButton(552, 102, 47, (15, 180, 30), (15, 160, 30), (15, 140, 30), text="START")
 
-# Stop Button rendered on the top right of the screen
 stop_button = CircleButton(726, 102, 47, (180, 15, 30), (160, 15, 30), (140, 15, 30), text="STOP")
+
+jog_button = CircleButton(275, 425, 47, (200, 210, 255), (180, 190, 235), (160, 170, 215), text="JOG")
 
 exit_button = Button(rect=(10, 10, 30, 30), text="X", on_click=stop_program)
 
-# Console rendered on the bottom of the screen and spans the entire left and right
-color_blocks = Console(rect=(552, 196, 219, 143), text_font="Roboto", text_size=18, max_lines=7)
+color_blocks = Console(rect=(552, 196, 219, 143), text_font="Corbel", text_size=19, max_lines=7)
 
-reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font="Arial", text_size=18, text="Reset Count", on_click=rst_count)
+reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=rst_count)
 
-block_stats = Console(rect=(552, 373, 219, 67), text_font="Roboto", text_size=18, max_lines=3)
+block_stats = Console(rect=(552, 373, 219, 67), text_font="Corbel", text_size=19, max_lines=3)
 
-reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font="Arial", text_size=18, text="Reset Time", on_click=rst_count)
-reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font="Arial", text_size=18, text="Reset Count", on_click=None)
+reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Time", on_click=rst_count)
+reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=None)
+
+def draw_assets():
+    global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
+    start_button.draw(screen)
+    stop_button.draw(screen)
+    exit_button.draw(screen)
+    reset_count.draw(screen)
+    reset_time.draw(screen)
+    reset_total.draw(screen)
+    jog_button.draw(screen)
+    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
+    update_color_blocks(blocks_list)
+    update_stats(blocks_list)
+    color_blocks.update()
+    block_stats.update()
+    color_blocks.draw(screen)
+    block_stats.draw(screen)
 
 # ============================================== 
 #                 START OF LOOP
@@ -230,6 +258,7 @@ running = True
 image = pygame.image.load("background.png")
 image_rect = image.get_rect()
 image_rect.topleft = (0, 0)
+blocks_list = []
 red_blocks = 0
 blue_blocks = 0
 green_blocks = 0
@@ -253,6 +282,9 @@ while running:
         
         if stop_button.is_clicked(event):
             stop()
+        
+        if jog_button.is_clicked(event):
+            jog_conveyor()
 
         exit_button.handle_event(event)
         reset_count.handle_event(event)
@@ -260,19 +292,7 @@ while running:
         reset_total.handle_event(event)
 
     screen.blit(image, image_rect)
-    start_button.draw(screen)
-    stop_button.draw(screen)
-    exit_button.draw(screen)
-    reset_count.draw(screen)
-    reset_time.draw(screen)
-    reset_total.draw(screen)
-    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
-    update_color_blocks(blocks_list)
-    update_stats(blocks_list)
-    color_blocks.update()
-    block_stats.update()
-    color_blocks.draw(screen)
-    block_stats.draw(screen)
+    draw_assets()
     pygame.display.flip()
 
 GPIO.cleanup()
