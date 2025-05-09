@@ -329,10 +329,19 @@ while running:
         else:
             jog_button.clicked = False
 
+        if start_button.clicked:
+            reset_count.bg_color=(150,150,150)
+            reset_time.bg_color=(150,150,150)
+            reset_total.bg_color=(150,150,150)
+        else:
+            reset_count.bg_color=(200,200,200)
+            reset_time.bg_color=(200,200,200)
+            reset_total.bg_color=(200,200,200)
+            reset_count.handle_event(event)
+            reset_time.handle_event(event)
+            reset_total.handle_event(event)
+        
         exit_button.handle_event(event)
-        reset_count.handle_event(event)
-        reset_time.handle_event(event)
-        reset_total.handle_event(event)
 
     screen.blit(image, image_rect)
     draw_assets()
