@@ -1,3 +1,4 @@
+from random import randint
 import pygame
 import time
 import sys
@@ -21,6 +22,24 @@ output_pin = 11
 stepper_pin = 17
 start_time = None
 elapsed = 0
+
+pallet_list = {
+    "layer_1" : [],
+    "layer_2" : [],
+    "layer_3" : []
+}
+
+block_colors = ["Red", "Blue", "Green", "Yellow"]
+
+for i in range(3):
+    for j in range(9):
+        pallet_list[f"layer_{i+1}"].append(block_colors[randint(0,3)])
+
+print(pallet_list["layer_1"])
+
+print(pallet_list["layer_2"])
+
+print(pallet_list["layer_3"])
 
 # ==============================================
 #          Start of Button Functions
@@ -171,8 +190,7 @@ def update_color_blocks(colored_block_list):
 
 def update_stats(block_list, timer):
     global count, block_stats
-    for num in block_list:
-        count += num
+    count = len(block_list)
     block_stats.log("Total Run Time: " + str(timer))
     block_stats.log("")
     block_stats.log("Total Part Count: " + str(count))
@@ -254,7 +272,17 @@ class CircleButton:
 #                START OF MISC
 # ==============================================
 
-# Nothing but us Chickens
+def observe_blocks(block):
+    global red_blocks, blue_blocks, green_blocks, yellow_blocks
+    if block == "Red":
+        red_blocks += 1
+    if block == "Blue":
+        blue_blocks += 1
+    if block == "Green":
+        green_blocks += 1
+    if block == "Yellow":
+        yellow_blocks += 1
+    return block
 
 # ============================================== 
 #                START OF MAIN 
@@ -344,7 +372,9 @@ while running:
         
         if jog_button.is_clicked(event):
             jog_button.clicked = True
-            start_button.clicked = False
+            if start_button.clicked:
+                elapsed = time.time() - start_time
+                start_button.clicked = False
             jog_conveyor()
         else:
             jog_button.clicked = False
@@ -360,8 +390,15 @@ while running:
             reset_count.handle_event(event)
             reset_time.handle_event(event)
             reset_total.handle_event(event)
+            rst_count()
         
         exit_button.handle_event(event)
+
+    if start_button.clicked:
+        for i in range(3):
+            for block in pallet_list[f"layer_{i+1}"]:
+                observe_blocks(block)
+                blocks_list.append(block)
 
     screen.blit(image, image_rect)
     draw_assets(get_elapsed_time())
