@@ -1,4 +1,5 @@
 import pygame
+import time
 import sys
 
 pygame.init()
@@ -18,6 +19,8 @@ BLUE = (0, 0, 255)
 assigned_color = (0,0,0)
 output_pin = 11
 stepper_pin = 17
+start_time = None
+elapsed = 0
 
 # ==============================================
 #          Start of Button Functions
@@ -56,6 +59,20 @@ def stop_program():
     GPIO_MOCK.cleanup()
     pygame.quit()
     sys.exit()
+
+def get_elapsed_time():
+    """Returns the elapsed time as a formatted string."""
+    global elapsed, start_time, start_button
+
+    if start_button.clicked:
+        elapsed = time.time() - start_time
+
+    return "{:.2f}".format(elapsed)
+
+def rst_time():
+    global start_time, elapsed
+    start_time = None
+    elapsed = 0
 
 # ==============================================
 #             START OF RPiGPIO MOCK
@@ -152,11 +169,11 @@ def update_color_blocks(colored_block_list):
     color_blocks.log("")
     color_blocks.log("Yellow Blocks: " + str(yellow_blocks))
 
-def update_stats(block_list):
+def update_stats(block_list, timer):
     global count, block_stats
     for num in block_list:
         count += num
-    block_stats.log("Total Run Time: ")
+    block_stats.log("Total Run Time: " + str(timer))
     block_stats.log("")
     block_stats.log("Total Part Count: " + str(count))
 
@@ -263,10 +280,10 @@ reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color
 
 block_stats = Console(rect=(552, 373, 219, 67), text_font=text_font, text_size=19, max_lines=3)
 
-reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_count)
+reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_time)
 reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=None)
 
-def draw_assets():
+def draw_assets(timer):
     global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
     start_button.draw(screen)
     stop_button.draw(screen)
@@ -277,7 +294,7 @@ def draw_assets():
     jog_button.draw(screen)
     blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
     update_color_blocks(blocks_list)
-    update_stats(blocks_list)
+    update_stats(blocks_list, timer)
     color_blocks.update()
     block_stats.update()
     color_blocks.draw(screen)
@@ -313,10 +330,13 @@ while running:
         
         if start_button.is_clicked(event):
             start_button.clicked = True
+            start_time = time.time() - elapsed
             start()
         
         if stop_button.is_clicked(event):
-            start_button.clicked = False
+            if start_button.clicked:
+                elapsed = time.time() - start_time
+                start_button.clicked = False
             stop_button.clicked = True
             stop()
         else:
@@ -344,7 +364,7 @@ while running:
         exit_button.handle_event(event)
 
     screen.blit(image, image_rect)
-    draw_assets()
+    draw_assets(get_elapsed_time())
     pygame.display.flip()
 
 GPIO_MOCK.cleanup()
