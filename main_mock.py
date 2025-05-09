@@ -2,8 +2,12 @@ import pygame
 import sys
 
 pygame.init()
+screen_state = input("Fullscreen or Resizable?\n>>> ").lower()
 
-screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
+if screen_state == "fullscreen" or screen_state == "full":
+    screen = pygame.display.set_mode((800, 480), pygame.FULLSCREEN)
+else:
+    screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
 screen_width, screen_height = pygame.display.get_surface().get_size()
 pygame.display.set_caption("Conveyor Simulator")
 
@@ -107,9 +111,8 @@ class Console:
             self.lines.pop(0)
 
     def draw(self, surface):
-        border_radius = 0
-        pygame.draw.rect(surface, GRAY, self.rect,0,border_radius)
-        pygame.draw.rect(surface, BLACK, self.rect, 2, border_radius)
+        pygame.draw.rect(surface, GRAY, self.rect,0)
+        pygame.draw.rect(surface, BLACK, self.rect, 2)
         y = self.rect.top + 5
         for message, color in self.lines:
             # message_wrapped = textwrap.fill(message,((screen_width - (screen_width/5))))
@@ -181,7 +184,7 @@ class Button:
     def draw(self, surface):
         color = self.click_color if self.clicked else self.bg_color
         pygame.draw.rect(surface, color, self.rect)
-        pygame.draw.rect(surface, (0,0,0), self.rect, 2, self.radius)
+        pygame.draw.rect(surface, (0,0,0), self.rect, 2)
         text_surf = self.font.render(self.text, True, self.text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
@@ -207,16 +210,15 @@ class CircleButton:
         self.color = color
         self.outline_color = outline_color
         self.hover_color = hover_color or color
-        self.bright_color = (self.color[0] + 55 if self.color[0] < 200 else self.color[0], self.color[1] + 55 if self.color[1] < 200 else self.color[1], self.color[2] + 55 if self.color[2] < 200 else self.color[2])
+        self.bright_color = (self.color[0] + 22.5 if self.color[0] < 200 else self.color[0], self.color[1] + 22.5 if self.color[1] < 200 else self.color[1], self.color[2] + 22.5 if self.color[2] < 200 else self.color[2])
         self.text = text
         self.font = pygame.font.SysFont("roboto mono", 30, bold=True)
         self.text_color = text_color
+        self.clicked = False
 
     def draw(self, screen):
-        mouse_pos = pygame.mouse.get_pos()
-        is_hovered = self.is_hovered(mouse_pos)
-        pygame.draw.circle(screen, self.hover_color if is_hovered else self.color, (self.x, self.y), self.radius)
-        pygame.draw.circle(screen, self.outline_color if not is_hovered else self.bright_color, (self.x, self.y), self.radius, 4)
+        pygame.draw.circle(screen, self.hover_color if not self.clicked else self.color, (self.x, self.y), self.radius)
+        pygame.draw.circle(screen, self.outline_color if not self.clicked else self.bright_color, (self.x, self.y), self.radius, 4)
 
         if self.text and self.font:
             text_surf = self.font.render(self.text, True, self.text_color)
@@ -253,14 +255,16 @@ jog_button = CircleButton(275, 425, 47, (200, 210, 255), (180, 190, 235), (160, 
 
 exit_button = Button(rect=(10, 10, 30, 30), text="X", on_click=stop_program)
 
-color_blocks = Console(rect=(552, 196, 219, 143), text_font="Corbel", text_size=19, max_lines=7)
+text_font = "Calibri"
 
-reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=rst_count)
+color_blocks = Console(rect=(552, 196, 219, 143), text_font=text_font, text_size=19, max_lines=7)
 
-block_stats = Console(rect=(552, 373, 219, 67), text_font="Corbel", text_size=19, max_lines=3)
+reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=rst_count)
 
-reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Time", on_click=rst_count)
-reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=None)
+block_stats = Console(rect=(552, 373, 219, 67), text_font=text_font, text_size=19, max_lines=3)
+
+reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_count)
+reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=None)
 
 def draw_assets():
     global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
@@ -304,17 +308,26 @@ while running:
                 print("Escape Pressed\nStopping program...\nProgram Stopped.")
                 running = False
 
-        if event.type == pygame.VIDEORESIZE:
-            screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+        # if event.type == pygame.VIDEORESIZE:
+        #     screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
         
         if start_button.is_clicked(event):
+            start_button.clicked = True
             start()
         
         if stop_button.is_clicked(event):
+            start_button.clicked = False
+            stop_button.clicked = True
             stop()
+        else:
+            stop_button.clicked = False
         
         if jog_button.is_clicked(event):
+            jog_button.clicked = True
+            start_button.clicked = False
             jog_conveyor()
+        else:
+            jog_button.clicked = False
 
         exit_button.handle_event(event)
         reset_count.handle_event(event)
