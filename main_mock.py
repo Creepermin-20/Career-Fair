@@ -48,8 +48,10 @@ print(pallet_list["layer_3"])
 on = False
 
 def start():
-    global on,assigned_color,output_pin
+    global on,assigned_color,output_pin,count
     if not on:
+        if count > 0:
+            rst_count()
         GPIO_MOCK.output(output_pin, GPIO_MOCK.HIGH)
         assigned_color = (15, 180, 30)
         on = True
@@ -92,6 +94,10 @@ def rst_time():
     global start_time, elapsed
     start_time = None
     elapsed = 0
+
+def rst_total():
+    global count
+    count = 0
 
 # ==============================================
 #             START OF RPiGPIO MOCK
@@ -188,9 +194,8 @@ def update_color_blocks(colored_block_list):
     color_blocks.log("")
     color_blocks.log("Yellow Blocks: " + str(yellow_blocks))
 
-def update_stats(block_list, timer):
+def update_stats(timer):
     global count, block_stats
-    count = len(block_list)
     block_stats.log("Total Run Time: " + str(timer))
     block_stats.log("")
     block_stats.log("Total Part Count: " + str(count))
@@ -273,7 +278,7 @@ class CircleButton:
 # ==============================================
 
 def observe_blocks(block):
-    global red_blocks, blue_blocks, green_blocks, yellow_blocks
+    global red_blocks, blue_blocks, green_blocks, yellow_blocks, count
     if block == "Red":
         red_blocks += 1
     if block == "Blue":
@@ -282,7 +287,7 @@ def observe_blocks(block):
         green_blocks += 1
     if block == "Yellow":
         yellow_blocks += 1
-    return block
+    count = yellow_blocks + green_blocks + blue_blocks + red_blocks
 
 # ============================================== 
 #                START OF MAIN 
@@ -309,7 +314,7 @@ reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color
 block_stats = Console(rect=(552, 373, 219, 67), text_font=text_font, text_size=19, max_lines=3)
 
 reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_time)
-reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=None)
+reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=rst_total)
 
 def draw_assets(timer):
     global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
@@ -322,7 +327,7 @@ def draw_assets(timer):
     jog_button.draw(screen)
     blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
     update_color_blocks(blocks_list)
-    update_stats(blocks_list, timer)
+    update_stats(timer)
     color_blocks.update()
     block_stats.update()
     color_blocks.draw(screen)
@@ -375,6 +380,7 @@ while running:
             if start_button.clicked:
                 elapsed = time.time() - start_time
                 start_button.clicked = False
+            stop()
             jog_conveyor()
         else:
             jog_button.clicked = False
@@ -390,15 +396,13 @@ while running:
             reset_count.handle_event(event)
             reset_time.handle_event(event)
             reset_total.handle_event(event)
-            rst_count()
         
         exit_button.handle_event(event)
 
-    if start_button.clicked:
+    if on:
         for i in range(3):
             for block in pallet_list[f"layer_{i+1}"]:
                 observe_blocks(block)
-                blocks_list.append(block)
 
     screen.blit(image, image_rect)
     draw_assets(get_elapsed_time())
