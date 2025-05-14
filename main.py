@@ -1,12 +1,18 @@
 import pygame
 import sys
 import RPi.GPIO as GPIO # type: ignore
+import time
+import sys
 
 pygame.init()
+screen_state = input("Fullscreen or Resizable?\n>>> ").lower()
 
-screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
+if screen_state == "fullscreen" or screen_state == "full":
+    screen = pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
+else:
+    screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
 screen_width, screen_height = pygame.display.get_surface().get_size()
-pygame.display.set_caption("Conveyor Simulator")
+pygame.display.set_caption("Conveyor Controller")
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -15,6 +21,20 @@ BLUE = (0, 0, 255)
 assigned_color = (0,0,0)
 output_pin = 11
 stepper_pin = 17
+start_time = None
+elapsed = 0
+
+pallet_list = {
+    "layer_1" : [],
+    "layer_2" : [],
+    "layer_3" : []
+}
+
+block_colors = ["Red", "Blue", "Green", "Yellow"]
+
+print(pallet_list["layer_1"])
+print(pallet_list["layer_2"])
+print(pallet_list["layer_3"])
 
 # ==============================================
 #          Start of Button Functions
@@ -38,14 +58,13 @@ def stop():
 
 def rst_count():
     global red_blocks, blue_blocks, green_blocks, yellow_blocks
-    red_blocks = 0
-    blue_blocks = 0
-    green_blocks = 0
-    yellow_blocks = 0
+    red_blocks = 0.0
+    blue_blocks = 0.0
+    green_blocks = 0.0
+    yellow_blocks = 0.0
 
 def jog_conveyor():
-    if on:
-        print("PROGRAM IS STARTED. STOP THE PROGRAM TO JOG CONVEYOR.")
+    step_motor(100, 0.005)
     GPIO.output(stepper_pin, GPIO.HIGH)
 
 def stop_program():
@@ -53,6 +72,24 @@ def stop_program():
     GPIO.cleanup()
     pygame.quit()
     sys.exit()
+
+def get_elapsed_time():
+    """Returns the elapsed time as a formatted string."""
+    global elapsed, start_time, start_button
+
+    if start_button.clicked:
+        elapsed = time.time() - start_time
+
+    return "{:.2f}".format(elapsed)
+
+def rst_time():
+    global start_time, elapsed
+    start_time = None
+    elapsed = 0.00
+
+def rst_total():
+    global count
+    count = 0.0
 
 # ==============================================
 #               START OF CONSOLE
@@ -111,19 +148,17 @@ def update_color_blocks(colored_block_list):
     blue_blocks = colored_block_list[1]
     green_blocks = colored_block_list[2]
     yellow_blocks = colored_block_list[3]
-    color_blocks.log("Red Blocks: " + str(red_blocks))
+    color_blocks.log("Red Blocks: " + str(round(red_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Blue Blocks: " + str(blue_blocks))
+    color_blocks.log("Blue Blocks: " + str(round(blue_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Green Blocks: " + str(green_blocks))
+    color_blocks.log("Green Blocks: " + str(round(green_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Yellow Blocks: " + str(yellow_blocks))
+    color_blocks.log("Yellow Blocks: " + str(round(yellow_blocks, 0)))
 
-def update_stats(block_list):
+def update_stats(timer):
     global count, block_stats
-    for num in block_list:
-        count += num
-    block_stats.log("Total Run Time: ")
+    block_stats.log("Total Run Time: " + str(timer))
     block_stats.log("")
     block_stats.log("Total Part Count: " + str(count))
 
@@ -151,7 +186,7 @@ class Button:
     def draw(self, surface):
         color = self.click_color if self.clicked else self.bg_color
         pygame.draw.rect(surface, color, self.rect)
-        pygame.draw.rect(surface, (0,0,0), self.rect, 2, self.radius)
+        pygame.draw.rect(surface, (0,0,0), self.rect, 2)
         text_surf = self.font.render(self.text, True, self.text_color)
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
@@ -177,16 +212,15 @@ class CircleButton:
         self.color = color
         self.outline_color = outline_color
         self.hover_color = hover_color or color
-        self.bright_color = (self.color[0] + 55 if self.color[0] < 200 else self.color[0], self.color[1] + 55 if self.color[1] < 200 else self.color[1], self.color[2] + 55 if self.color[2] < 200 else self.color[2])
+        self.bright_color = (self.color[0] + 22.5 if self.color[0] < 200 else self.color[0], self.color[1] + 22.5 if self.color[1] < 200 else self.color[1], self.color[2] + 22.5 if self.color[2] < 200 else self.color[2])
         self.text = text
         self.font = pygame.font.SysFont("roboto mono", 30, bold=True)
         self.text_color = text_color
+        self.clicked = False
 
     def draw(self, screen):
-        mouse_pos = pygame.mouse.get_pos()
-        is_hovered = self.is_hovered(mouse_pos)
-        pygame.draw.circle(screen, self.hover_color if is_hovered else self.color, (self.x, self.y), self.radius)
-        pygame.draw.circle(screen, self.outline_color if not is_hovered else self.bright_color, (self.x, self.y), self.radius, 4)
+        pygame.draw.circle(screen, self.hover_color if not self.clicked else self.color, (self.x, self.y), self.radius)
+        pygame.draw.circle(screen, self.outline_color if not self.clicked else self.bright_color, (self.x, self.y), self.radius, 4)
 
         if self.text and self.font:
             text_surf = self.font.render(self.text, True, self.text_color)
@@ -200,6 +234,48 @@ class CircleButton:
 
     def is_clicked(self, event):
         return event.type == pygame.MOUSEBUTTONDOWN and self.is_hovered(event.pos)
+
+# ============================================== 
+#            START OF MOTOR CONTROL
+# ==============================================
+
+# Define GPIO pins connected to L293D
+IN1 = 28  # GPIO28
+IN2 = 23  # GPIO23
+IN3 = 27  # GPIO27
+IN4 = 22  # GPIO22
+
+# Setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(IN1, GPIO.OUT)
+GPIO.setup(IN2, GPIO.OUT)
+GPIO.setup(IN3, GPIO.OUT)
+GPIO.setup(IN4, GPIO.OUT)
+
+# Full-step sequence for bipolar stepper
+step_sequence = [
+    [1, 0, 1, 0],  # Step 1
+    [0, 1, 1, 0],  # Step 2
+    [0, 1, 0, 1],  # Step 3
+    [1, 0, 0, 1],  # Step 4
+]
+
+def step_motor(steps=100, delay=0.01):
+    for _ in range(steps):
+        for step in step_sequence:
+            GPIO.output(IN1, step[0])
+            GPIO.output(IN2, step[1])
+            GPIO.output(IN3, step[2])
+            GPIO.output(IN4, step[3])
+            time.sleep(delay)
+
+try:
+    print("Jogging motor forward 100 steps...")
+    step_motor(steps=100, delay=0.01)
+finally:
+    GPIO.cleanup()
+    print("GPIO cleaned up.")
+
 
 # ============================================== 
 #                START OF MISC
@@ -223,31 +299,33 @@ jog_button = CircleButton(275, 425, 47, (200, 210, 255), (180, 190, 235), (160, 
 
 exit_button = Button(rect=(10, 10, 30, 30), text="X", on_click=stop_program)
 
-color_blocks = Console(rect=(552, 196, 219, 143), text_font="Corbel", text_size=19, max_lines=7)
+text_font = "Calibri"
 
-reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=rst_count)
+color_blocks = Console(rect=(552, 196, 219, 143), text_font=text_font, text_size=19, max_lines=7)
 
-block_stats = Console(rect=(552, 373, 219, 67), text_font="Corbel", text_size=19, max_lines=3)
+reset_count = Button(rect=(color_blocks.rect.x + 54, color_blocks.rect.y + color_blocks.rect.height + 3, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=rst_count)
 
-reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Time", on_click=rst_count)
-reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font="Corbel", text_size=18, text="Reset Count", on_click=None)
+block_stats = Console(rect=(552, 373, 219, 67), text_font=text_font, text_size=19, max_lines=3)
+
+reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_time)
+reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=rst_total)
+
+drawn_assets = [
+    start_button,
+    stop_button,
+    exit_button,
+    reset_count,
+    reset_time,
+    reset_total,
+    jog_button,
+    color_blocks,
+    block_stats
+]
 
 def draw_assets():
-    global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
-    start_button.draw(screen)
-    stop_button.draw(screen)
-    exit_button.draw(screen)
-    reset_count.draw(screen)
-    reset_time.draw(screen)
-    reset_total.draw(screen)
-    jog_button.draw(screen)
-    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
-    update_color_blocks(blocks_list)
-    update_stats(blocks_list)
-    color_blocks.update()
-    block_stats.update()
-    color_blocks.draw(screen)
-    block_stats.draw(screen)
+    global drawn_assets
+    for asset in drawn_assets:
+        asset.draw(screen)
 
 # ============================================== 
 #                 START OF LOOP
@@ -274,24 +352,49 @@ while running:
                 print("Escape Pressed\nStopping program...\nProgram Stopped.")
                 running = False
 
-        if event.type == pygame.VIDEORESIZE:
-            screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
-        
         if start_button.is_clicked(event):
+            start_button.clicked = True
+            start_time = time.time() - elapsed
             start()
         
         if stop_button.is_clicked(event):
+            if start_button.clicked:
+                elapsed = time.time() - start_time
+                start_button.clicked = False
+            stop_button.clicked = True
             stop()
+        else:
+            stop_button.clicked = False
         
         if jog_button.is_clicked(event):
+            jog_button.clicked = True
+            if start_button.clicked:
+                elapsed = time.time() - start_time
+                start_button.clicked = False
+            stop()
+            pygame.time.delay(50)
             jog_conveyor()
+        else:
+            jog_button.clicked = False
 
+        if start_button.clicked:
+            reset_count.bg_color=(150,150,150)
+            reset_time.bg_color=(150,150,150)
+            reset_total.bg_color=(150,150,150)
+        else:
+            reset_count.bg_color=(200,200,200)
+            reset_time.bg_color=(200,200,200)
+            reset_total.bg_color=(200,200,200)
+            reset_count.handle_event(event)
+            reset_time.handle_event(event)
+            reset_total.handle_event(event)
+        
         exit_button.handle_event(event)
-        reset_count.handle_event(event)
-        reset_time.handle_event(event)
-        reset_total.handle_event(event)
 
     screen.blit(image, image_rect)
+    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
+    update_color_blocks(blocks_list)
+    update_stats(get_elapsed_time())
     draw_assets()
     pygame.display.flip()
 

@@ -7,7 +7,7 @@ pygame.init()
 screen_state = input("Fullscreen or Resizable?\n>>> ").lower()
 
 if screen_state == "fullscreen" or screen_state == "full":
-    screen = pygame.display.set_mode((800, 480), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((1280, 720), pygame.FULLSCREEN)
 else:
     screen = pygame.display.set_mode((800, 480), pygame.RESIZABLE)
 screen_width, screen_height = pygame.display.get_surface().get_size()
@@ -65,10 +65,10 @@ def stop():
 
 def rst_count():
     global red_blocks, blue_blocks, green_blocks, yellow_blocks
-    red_blocks = 0
-    blue_blocks = 0
-    green_blocks = 0
-    yellow_blocks = 0
+    red_blocks = 0.0
+    blue_blocks = 0.0
+    green_blocks = 0.0
+    yellow_blocks = 0.0
 
 def jog_conveyor():
     if on:
@@ -93,11 +93,11 @@ def get_elapsed_time():
 def rst_time():
     global start_time, elapsed
     start_time = None
-    elapsed = 0
+    elapsed = 0.00
 
 def rst_total():
     global count
-    count = 0
+    count = 0.0
 
 # ==============================================
 #             START OF RPiGPIO MOCK
@@ -186,13 +186,13 @@ def update_color_blocks(colored_block_list):
     blue_blocks = colored_block_list[1]
     green_blocks = colored_block_list[2]
     yellow_blocks = colored_block_list[3]
-    color_blocks.log("Red Blocks: " + str(red_blocks))
+    color_blocks.log("Red Blocks: " + str(round(red_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Blue Blocks: " + str(blue_blocks))
+    color_blocks.log("Blue Blocks: " + str(round(blue_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Green Blocks: " + str(green_blocks))
+    color_blocks.log("Green Blocks: " + str(round(green_blocks, 0)))
     color_blocks.log("")
-    color_blocks.log("Yellow Blocks: " + str(yellow_blocks))
+    color_blocks.log("Yellow Blocks: " + str(round(yellow_blocks, 0)))
 
 def update_stats(timer):
     global count, block_stats
@@ -280,14 +280,14 @@ class CircleButton:
 def observe_blocks(block):
     global red_blocks, blue_blocks, green_blocks, yellow_blocks, count
     if block == "Red":
-        red_blocks += 1
+        red_blocks += 0.0001
     if block == "Blue":
-        blue_blocks += 1
+        blue_blocks += 0.0001
     if block == "Green":
-        green_blocks += 1
+        green_blocks += 0.0001
     if block == "Yellow":
-        yellow_blocks += 1
-    count = yellow_blocks + green_blocks + blue_blocks + red_blocks
+        yellow_blocks += 0.0001
+    count = round(yellow_blocks, 0) + round(green_blocks, 0) + round(blue_blocks, 0) + round(red_blocks, 0)
 
 # ============================================== 
 #                START OF MAIN 
@@ -316,22 +316,31 @@ block_stats = Console(rect=(552, 373, 219, 67), text_font=text_font, text_size=1
 reset_time = Button(rect=(block_stats.rect.x, block_stats.rect.y + block_stats.rect.height + 6, 105, 29), radius=4, text_font=text_font, text_size=18, text="Reset Time", on_click=rst_time)
 reset_total = Button(rect=(color_blocks.rect.x + color_blocks.rect.width - 110, block_stats.rect.y + block_stats.rect.height + 6, 110, 29), radius=4, text_font=text_font, text_size=18, text="Reset Count", on_click=rst_total)
 
-def draw_assets(timer):
-    global start_button, stop_button, jog_button, exit_button, color_blocks, reset_count, block_stats, reset_time, reset_total, blocks_list
-    start_button.draw(screen)
-    stop_button.draw(screen)
-    exit_button.draw(screen)
-    reset_count.draw(screen)
-    reset_time.draw(screen)
-    reset_total.draw(screen)
-    jog_button.draw(screen)
-    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
-    update_color_blocks(blocks_list)
-    update_stats(timer)
-    color_blocks.update()
-    block_stats.update()
-    color_blocks.draw(screen)
-    block_stats.draw(screen)
+drawn_assets = [
+    start_button,
+    stop_button,
+    exit_button,
+    reset_count,
+    reset_time,
+    reset_total,
+    jog_button,
+    color_blocks,
+    block_stats
+]
+
+if screen_state == "fullscreen" or screen_state == "full":
+    x_offset = 27
+
+    for asset in drawn_assets:
+        try:
+            asset.x += x_offset
+        except AttributeError:
+            asset.rect.x += x_offset
+
+def draw_assets():
+    global drawn_assets
+    for asset in drawn_assets:
+        asset.draw(screen)
 
 # ============================================== 
 #                 START OF LOOP
@@ -339,15 +348,15 @@ def draw_assets(timer):
 
 message_logged = False
 running = True
-image = pygame.image.load("background.png")
+image = pygame.image.load("cropped-background.png") if screen_state == "fullscreen" or screen_state == "full" else pygame.image.load("background.png")
 image_rect = image.get_rect()
 image_rect.topleft = (0, 0)
 blocks_list = []
-red_blocks = 0
-blue_blocks = 0
-green_blocks = 0
-yellow_blocks = 0
-count = 0
+red_blocks = 0.0
+blue_blocks = 0.0
+green_blocks = 0.0
+yellow_blocks = 0.0
+count = 0.0
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -381,6 +390,7 @@ while running:
                 elapsed = time.time() - start_time
                 start_button.clicked = False
             stop()
+            pygame.time.delay(50)
             jog_conveyor()
         else:
             jog_button.clicked = False
@@ -405,7 +415,10 @@ while running:
                 observe_blocks(block)
 
     screen.blit(image, image_rect)
-    draw_assets(get_elapsed_time())
+    blocks_list = [red_blocks, blue_blocks, green_blocks, yellow_blocks]
+    update_color_blocks(blocks_list)
+    update_stats(get_elapsed_time())
+    draw_assets()
     pygame.display.flip()
 
 GPIO_MOCK.cleanup()
